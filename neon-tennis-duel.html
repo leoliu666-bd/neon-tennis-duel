@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>霓虹网球对决</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; overflow: hidden; background: #070b16; }
+    body {
+      display: grid; place-items: center; min-height: 100dvh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #e9f8ff; user-select: none; -webkit-user-select: none;
+      background: radial-gradient(circle at 50% 8%, #162a57 0%, #090e20 42%, #04060d 100%);
+    }
+    #game-shell {
+      position: relative; width: min(94vw, calc((100dvh - 22px) * .75), 600px); aspect-ratio: 3 / 4;
+      max-height: calc(100dvh - 22px); overflow: hidden; border-radius: 22px;
+      box-shadow: 0 0 0 1px rgba(119, 232, 255, .2), 0 22px 70px rgba(0, 0, 0, .6), 0 0 52px rgba(63, 145, 255, .13);
+      touch-action: none;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    #screen {
+      position: absolute; inset: 0; display: grid; place-items: center; padding: clamp(18px, 5vw, 34px);
+      pointer-events: none;
+    }
+    .panel {
+      width: min(100%, 420px); max-height: 92%; overflow: auto; text-align: center; pointer-events: auto;
+      padding: 28px 24px; border: 1px solid rgba(133, 231, 255, .28); border-radius: 20px;
+      background: linear-gradient(145deg, rgba(9, 22, 51, .94), rgba(8, 12, 30, .9));
+      box-shadow: 0 14px 44px rgba(0, 0, 0, .38), inset 0 1px rgba(255, 255, 255, .07);
+      backdrop-filter: blur(10px);
+    }
+    .panel h1, .panel h2 { margin: 0; letter-spacing: .07em; }
+    .panel h1 { font-size: clamp(28px, 7vw, 42px); color: #dff9ff; text-shadow: 0 0 18px #34ccff; }
+    .panel h2 { font-size: clamp(22px, 5vw, 30px); color: #f6fbff; }
+    .eyebrow { margin: 9px 0 18px; color: #77e8ff; font-weight: 700; letter-spacing: .18em; font-size: 12px; }
+    .rules { margin: 18px 0 24px; padding: 0; list-style: none; text-align: left; color: #c5d5ec; font-size: 14px; line-height: 1.65; }
+    .rules li { position: relative; padding-left: 16px; margin: 5px 0; }
+    .rules li::before { content: "✦"; position: absolute; left: 0; color: #78e9ff; }
+    .actions { display: grid; gap: 10px; }
+    button {
+      min-height: 45px; border: 1px solid rgba(133, 231, 255, .42); border-radius: 12px; padding: 10px 16px;
+      color: #eafaff; background: rgba(90, 172, 225, .10); font: inherit; font-weight: 700; letter-spacing: .04em;
+      cursor: pointer; transition: transform .12s ease, background .12s ease, box-shadow .12s ease;
+    }
+    button:hover, button:focus-visible { background: rgba(70, 202, 255, .24); box-shadow: 0 0 20px rgba(65, 210, 255, .22); outline: none; }
+    button:active { transform: translateY(1px) scale(.985); }
+    button.primary { border-color: #71eeff; color: #061827; background: linear-gradient(135deg, #9df5ff, #4fc6ff); box-shadow: 0 0 24px rgba(58, 210, 255, .26); }
+    button.danger { border-color: rgba(255, 124, 143, .62); color: #ffc5ce; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; }
+    .summary div { padding: 10px 4px; border-radius: 12px; background: rgba(137, 214, 255, .08); }
+    .summary b { display: block; color: #82ecff; font-size: 21px; }
+    .summary span { display: block; margin-top: 4px; color: #9aaccc; font-size: 11px; }
+    .record { margin: 14px 0 15px; color: #ffd98e; font-size: 14px; line-height: 1.5; }
+    label { display: block; text-align: left; margin: 12px 0 7px; color: #b9cae7; font-size: 13px; }
+    input {
+      width: 100%; height: 43px; padding: 0 12px; border: 1px solid rgba(137, 231, 255, .35); border-radius: 10px;
+      background: rgba(0, 0, 0, .2); color: #f2fdff; font: inherit; outline: none;
+    }
+    input:focus { border-color: #78e9ff; box-shadow: 0 0 0 3px rgba(105, 223, 255, .14); }
+    .rank-list { width: 100%; margin: 17px 0 15px; border-collapse: collapse; font-size: 13px; }
+    .rank-list th { color: #82eaff; font-weight: 600; }
+    .rank-list th, .rank-list td { padding: 8px 3px; border-bottom: 1px solid rgba(151, 221, 255, .12); white-space: nowrap; }
+    .rank-list td:nth-child(2) { max-width: 92px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+    .rank-list tr:first-child td { color: #ffe294; }
+    .empty { margin: 26px 0; color: #9daece; }
+    .small { margin: 12px 0 0; color: #8ba0c7; font-size: 12px; line-height: 1.5; }
+    .hidden { display: none !important; }
+    @media (max-height: 620px) { .panel { padding: 18px 20px; } .rules { margin: 10px 0 14px; line-height: 1.38; } .panel h1 { font-size: 27px; } }
+  </style>
+</head>
+<body>
+  <main id="game-shell" aria-label="霓虹网球对决">
+    <canvas id="game" aria-label="竖版网球对打游戏画布"></canvas>
+    <div id="screen" aria-live="polite"></div>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+
+    // ==================== 常量配置 ====================
+    const CONFIG = {
+      width: 600, height: 800, // 固定逻辑坐标；CSS 只负责等比显示
+      court: { left: 42, right: 558, top: 106, bottom: 762, netY: 400 },
+      lives: 3, paddleW: 128, paddleH: 18, playerY: 700, aiY: 172,
+      ballRadius: 9, ballBaseSpeed: 355, ballMaxSpeed: 820,
+      hitSpeedGain: 13, perfectSpeedBonus: 1.20, sweetSpot: 0.15,
+      playerSpeed: 560, pointerSmoothing: 0.25, maxBounceAngle: Math.PI * .31,
+      particles: { normal: 10, perfect: 19, life: .42 },
+      levelEvery: 5, serveDelay: .78, shakeDuration: .20,
+      storageKey: 'tennis_leaderboard_v1', maxScores: 10
+    };
+
+    // 等级: 触发回击数, 球速倍数, AI移动速度(px/s), AI瞄准误差(px), AI反应延迟(s)
+    const DIFFICULTY = [
+      { hits: 0,  speed: 1.00, aiSpeed: 260, aiError: 70, aiDelay: .22 },
+      { hits: 5,  speed: 1.08, aiSpeed: 300, aiError: 56, aiDelay: .19 },
+      { hits: 10, speed: 1.16, aiSpeed: 340, aiError: 44, aiDelay: .16 },
+      { hits: 15, speed: 1.25, aiSpeed: 385, aiError: 33, aiDelay: .13 },
+      { hits: 20, speed: 1.35, aiSpeed: 430, aiError: 24, aiDelay: .10 },
+      { hits: 30, speed: 1.48, aiSpeed: 480, aiError: 16, aiDelay: .07 },
+      { hits: 40, speed: 1.65, aiSpeed: 540, aiError: 9,  aiDelay: .05 }
+    ];
+
+    // ==================== 状态管理 ====================
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const screen = document.getElementById('screen');
+    const shell = document.getElementById('game-shell');
+    let scene = 'menu'; // menu / playing / paused / gameover / leaderboard
+    let previousScene = 'menu';
+    let lastTime = 0;
+    let pixelRatio = 1;
+    let memoryScores = [];
+    let clearArmed = false;
+    let audio = null;
+
+    const game = {
+      score: 0, combo: 0, maxCombo: 0, lives: CONFIG.lives, hits: 0,
+      level: 1, levelFlash: 0, serveTimer: 0, shake: 0, redFlash: 0,
+      particles: [], trail: [],
+      player: { x: CONFIG.width / 2, targetX: CONFIG.width / 2, w: CONFIG.paddleW, h: CONFIG.paddleH, y: CONFIG.playerY },
+      ai: { x: CONFIG.width / 2, targetX: CONFIG.width / 2, w: CONFIG.paddleW, h: CONFIG.paddleH, y: CONFIG.aiY, decision: 0 },
+      ball: { x: CONFIG.width / 2, y: CONFIG.height / 2, vx: 0, vy: 0, speed: CONFIG.ballBaseSpeed, radius: CONFIG.ballRadius }
+    };
+    const keys = { left: false, right: false };
+    let inputMode = 'pointer';
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function lerp(a, b, amount) { return a + (b - a) * amount; }
+    function random(min, max) { return min + Math.random() * (max - min); }
+    function currentDifficulty() { return DIFFICULTY[game.level - 1] || DIFFICULTY[DIFFICULTY.length - 1]; }
+    function paddleLimit(x, paddle) { return clamp(x, CONFIG.court.left + paddle.w / 2, CONFIG.court.right - paddle.w / 2); }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(rect.width * pixelRatio);
+      canvas.height = Math.round(rect.height * pixelRatio);
+      ctx.setTransform(pixelRatio * rect.width / CONFIG.width, 0, 0, pixelRatio * rect.height / CONFIG.height, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+    }
+    new ResizeObserver(resizeCanvas).observe(shell);
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    resizeCanvas();
+
+    // ==================== 排行榜 ====================
+    function loadScores() {
+      try {
+        const data = JSON.parse(localStorage.getItem(CONFIG.storageKey) || '[]');
+        memoryScores = Array.isArray(data) ? data.filter(item => item && typeof item.score === 'number') : [];
+      } catch (error) { memoryScores = []; }
+      return memoryScores.sort((a, b) => b.score - a.score).slice(0, CONFIG.maxScores);
+    }
+    function saveScores(scores) {
+      memoryScores = scores.sort((a, b) => b.score - a.score).slice(0, CONFIG.maxScores);
+      try { localStorage.setItem(CONFIG.storageKey, JSON.stringify(memoryScores)); } catch (error) { /* 内存降级继续可用 */ }
+    }
+    function scoreQualifies() {
+      const scores = loadScores();
+      return scores.length < CONFIG.maxScores || game.score > scores[scores.length - 1].score;
+    }
+    function today() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+    function saveCurrentScore() {
+      const field = document.getElementById('nickname');
+      const name = ((field && field.value.trim()) || '匿名选手').slice(0, 8);
+      const scores = loadScores();
+      scores.push({ name, score: game.score, maxCombo: game.maxCombo, level: game.level, date: today() });
+      saveScores(scores);
+      showLeaderboard();
+    }
+
+    // ==================== 场景界面 ====================
+    function showMenu() {
+      scene = 'menu';
+      screen.innerHTML = `
+        <section class="panel" aria-label="开始界面">
+          <h1>霓虹网球</h1><p class="eyebrow">NEON TENNIS DUEL</p>
+          <ul class="rules">
+            <li>移动球拍接住来球；击中中心甜区可打出完美球。</li>
+            <li>A / D、方向键、鼠标或手指横向拖动均可操作。</li>
+            <li>连续回击提升连击与难度；每 5 次回击升一级。</li>
+            <li>Space 开始或暂停，R 随时重开。</li>
+          </ul>
+          <div class="actions"><button class="primary" data-action="start">开始对决</button><button data-action="leaderboard">排行榜</button></div>
+          <p class="small">首次点击将启用合成音效</p>
+        </section>`;
+    }
+    function showPaused() {
+      scene = 'paused';
+      screen.innerHTML = `
+        <section class="panel" aria-label="暂停">
+          <h2>已暂停</h2><p class="eyebrow">当前分数 ${game.score}</p>
+          <div class="actions"><button class="primary" data-action="resume">继续对决</button><button data-action="restart">重新开始</button><button data-action="menu">返回开始界面</button></div>
+        </section>`;
+    }
+    function showGameOver() {
+      scene = 'gameover';
+      const qualifies = scoreQualifies();
+      screen.innerHTML = `
+        <section class="panel" aria-label="游戏结束">
+          <h2>本局结束</h2><p class="eyebrow">${qualifies ? '恭喜，跻身本地 Top 10！' : '再接再厉，下一球更稳！'}</p>
+          <div class="summary"><div><b>${game.score}</b><span>本局分数</span></div><div><b>x${game.maxCombo}</b><span>最高连击</span></div><div><b>Lv.${game.level}</b><span>到达等级</span></div></div>
+          ${qualifies ? '<label for="nickname">留下昵称（最多 8 字）</label><input id="nickname" maxlength="8" value="匿名选手" autocomplete="off">' : ''}
+          <div class="actions">
+            ${qualifies ? '<button class="primary" data-action="save-score">保存成绩并查看排行榜</button>' : '<button class="primary" data-action="leaderboard">查看排行榜</button>'}
+            <button data-action="restart">再来一局</button><button data-action="menu">返回开始界面</button>
+          </div>
+        </section>`;
+      if (qualifies) setTimeout(() => document.getElementById('nickname')?.focus(), 0);
+    }
+    function showLeaderboard() {
+      previousScene = scene;
+      scene = 'leaderboard';
+      const scores = loadScores();
+      const rows = scores.length ? scores.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHTML(String(item.name || '匿名选手'))}</td><td>${item.score}</td><td>x${item.maxCombo || 0}</td><td>Lv.${item.level || 1}</td><td>${item.date || '—'}</td></tr>`).join('') : '';
+      screen.innerHTML = `
+        <section class="panel" aria-label="排行榜">
+          <h2>本地排行榜</h2><p class="eyebrow">TOP 10</p>
+          ${scores.length ? `<table class="rank-list"><thead><tr><th>#</th><th>昵称</th><th>分数</th><th>连击</th><th>等级</th><th>日期</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="empty">暂时还没有战绩，去拿下第一名吧。</p>'}
+          <div class="actions"><button data-action="back">返回</button><button class="danger" data-action="clear">清空记录</button></div>
+          <p class="small">清空记录后将无法恢复。</p>
+        </section>`;
+    }
+    function escapeHTML(text) { return text.replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[c]); }
+
+    screen.addEventListener('click', event => {
+      const action = event.target.closest('button')?.dataset.action;
+      if (!action) return;
+      unlockAudio(); sound('button');
+      if (action === 'start' || action === 'restart') startGame();
+      if (action === 'resume') { scene = 'playing'; screen.innerHTML = ''; }
+      if (action === 'menu') showMenu();
+      if (action === 'leaderboard') showLeaderboard();
+      if (action === 'back') {
+        clearArmed = false;
+        if (previousScene === 'gameover') showGameOver(); else showMenu();
+      }
+      if (action === 'save-score') saveCurrentScore();
+      if (action === 'clear') {
+        if (!clearArmed) {
+          clearArmed = true;
+          event.target.textContent = '再次点击确认清空';
+          setTimeout(() => { clearArmed = false; if (scene === 'leaderboard') event.target.textContent = '清空记录'; }, 2500);
+        } else {
+          memoryScores = [];
+          try { localStorage.removeItem(CONFIG.storageKey); } catch (error) { /* 内存数据已清空 */ }
+          clearArmed = false; showLeaderboard(); sound('lose');
+        }
+      }
+    });
+
+    // ==================== 输入 ====================
+    function pointerX(event) {
+      const rect = canvas.getBoundingClientRect();
+      return clamp((event.clientX - rect.left) * CONFIG.width / rect.width, CONFIG.court.left, CONFIG.court.right);
+    }
+    function movePointer(event) {
+      if (scene !== 'playing') return;
+      inputMode = 'pointer';
+      game.player.targetX = paddleLimit(pointerX(event), game.player);
+    }
+    canvas.addEventListener('pointerdown', event => { unlockAudio(); movePointer(event); canvas.setPointerCapture?.(event.pointerId); event.preventDefault(); });
+    canvas.addEventListener('pointermove', event => { if (event.pointerType !== 'mouse' && !event.buttons && event.pointerType !== 'touch') return; movePointer(event); event.preventDefault(); });
+    canvas.addEventListener('contextmenu', event => event.preventDefault());
+    window.addEventListener('keydown', event => {
+      if (document.activeElement?.tagName === 'INPUT') return;
+      const key = event.key.toLowerCase();
+      if (key === 'a' || event.key === 'ArrowLeft') { keys.left = true; inputMode = 'keyboard'; event.preventDefault(); }
+      if (key === 'd' || event.key === 'ArrowRight') { keys.right = true; inputMode = 'keyboard'; event.preventDefault(); }
+      if (event.code === 'Space') {
+        event.preventDefault(); unlockAudio(); sound('button');
+        if (scene === 'playing') showPaused(); else if (scene === 'paused') { scene = 'playing'; screen.innerHTML = ''; } else if (scene === 'menu') startGame();
+      }
+      if (key === 'r') { event.preventDefault(); unlockAudio(); startGame(); }
+    });
+    window.addEventListener('keyup', event => {
+      const key = event.key.toLowerCase();
+      if (key === 'a' || event.key === 'ArrowLeft') keys.left = false;
+      if (key === 'd' || event.key === 'ArrowRight') keys.right = false;
+    });
+
+    // ==================== 音效（Web Audio 合成） ====================
+    function unlockAudio() {
+      if (!audio) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        try { audio = new AudioContextClass(); } catch (error) { audio = null; }
+      }
+      if (audio?.state === 'suspended') audio.resume().catch(() => {});
+    }
+    function tone(frequency, duration, type = 'sine', volume = .08, slideTo = null, delay = 0) {
+      if (!audio || audio.state !== 'running') return;
+      const time = audio.currentTime + delay;
+      const oscillator = audio.createOscillator();
+      const gain = audio.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, time);
+      if (slideTo) oscillator.frequency.exponentialRampToValueAtTime(Math.max(10, slideTo), time + duration);
+      gain.gain.setValueAtTime(.0001, time);
+      gain.gain.exponentialRampToValueAtTime(volume, time + .008);
+      gain.gain.exponentialRampToValueAtTime(.0001, time + duration);
+      oscillator.connect(gain).connect(audio.destination);
+      oscillator.start(time); oscillator.stop(time + duration + .02);
+    }
+    function sound(kind) {
+      if (kind === 'hit') tone(220, .075, 'square', .06, 300);
+      if (kind === 'perfect') { tone(520, .12, 'triangle', .09, 960); tone(780, .11, 'triangle', .045, 1150, .035); }
+      if (kind === 'lose') tone(190, .30, 'sawtooth', .09, 55);
+      if (kind === 'level') { tone(420, .11, 'triangle', .075, 560); tone(560, .11, 'triangle', .075, 720, .105); tone(720, .17, 'triangle', .09, 1020, .21); }
+      if (kind === 'button') tone(460, .045, 'square', .035, 520);
+    }
+
+    // ==================== 物理更新 ====================
+    function startGame() {
+      game.score = 0; game.combo = 0; game.maxCombo = 0; game.lives = CONFIG.lives; game.hits = 0;
+      game.level = 1; game.levelFlash = 0; game.shake = 0; game.redFlash = 0; game.particles.length = 0; game.trail.length = 0;
+      game.player.x = game.player.targetX = CONFIG.width / 2;
+      game.ai.x = game.ai.targetX = CONFIG.width / 2; game.ai.decision = 0;
+      scene = 'playing'; screen.innerHTML = ''; serveBall(1);
+    }
+    function serveBall(direction = Math.random() < .5 ? -1 : 1) {
+      const ball = game.ball;
+      ball.x = CONFIG.width / 2; ball.y = CONFIG.height / 2;
+      ball.speed = CONFIG.ballBaseSpeed * currentDifficulty().speed;
+      const angle = random(-.45, .45);
+      ball.vx = Math.sin(angle) * ball.speed;
+      ball.vy = Math.cos(angle) * ball.speed * direction;
+      game.serveTimer = CONFIG.serveDelay;
+      game.trail.length = 0;
+    }
+    function normalizeBall(speed, directionY, angle) {
+      game.ball.speed = clamp(speed, CONFIG.ballBaseSpeed, CONFIG.ballMaxSpeed);
+      game.ball.vx = Math.sin(angle) * game.ball.speed;
+      game.ball.vy = Math.cos(angle) * game.ball.speed * directionY;
+    }
+    function updatePlayer(dt) {
+      const p = game.player;
+      if (inputMode === 'keyboard' && (keys.left || keys.right)) {
+        p.x += ((keys.right ? 1 : 0) - (keys.left ? 1 : 0)) * CONFIG.playerSpeed * dt;
+        p.targetX = p.x;
+      } else {
+        const easing = Math.min(1, CONFIG.pointerSmoothing * dt * 60);
+        p.x = lerp(p.x, p.targetX, easing);
+      }
+      p.x = paddleLimit(p.x, p); p.targetX = paddleLimit(p.targetX, p);
+    }
+    function predictWallBounceX(x, y, vx, vy, targetY) {
+      if (Math.abs(vy) < .001) return x;
+      let nextX = x + vx * ((targetY - y) / vy);
+      const left = CONFIG.court.left + game.ball.radius;
+      const width = CONFIG.court.right - game.ball.radius - left;
+      const shifted = nextX - left;
+      const period = width * 2;
+      const mod = ((shifted % period) + period) % period;
+      return left + (mod > width ? period - mod : mod);
+    }
+    function updateAI(dt) {
+      const ai = game.ai, ball = game.ball, difficulty = currentDifficulty();
+      if (ball.vy < 0) {
+        ai.decision -= dt;
+        if (ai.decision <= 0) {
+          const prediction = predictWallBounceX(ball.x, ball.y, ball.vx, ball.vy, ai.y + ai.h / 2 + ball.radius);
+          ai.targetX = paddleLimit(prediction + random(-difficulty.aiError, difficulty.aiError), ai);
+          ai.decision = difficulty.aiDelay;
+        }
+      } else ai.targetX = lerp(ai.targetX, CONFIG.width / 2, dt * .7);
+      const maxStep = difficulty.aiSpeed * dt;
+      ai.x += clamp(ai.targetX - ai.x, -maxStep, maxStep);
+      ai.x = paddleLimit(ai.x, ai);
+    }
+    function updateBall(dt) {
+      const ball = game.ball;
+      if (game.serveTimer > 0) { game.serveTimer -= dt; return; }
+      game.trail.unshift({ x: ball.x, y: ball.y, life: .25 });
+      if (game.trail.length > 11) game.trail.pop();
+      ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+      const left = CONFIG.court.left + ball.radius, right = CONFIG.court.right - ball.radius;
+      if (ball.x < left) { ball.x = left; ball.vx = Math.abs(ball.vx); sound('hit'); }
+      if (ball.x > right) { ball.x = right; ball.vx = -Math.abs(ball.vx); sound('hit'); }
+      if (ball.vy > 0 && hitsPaddle(game.player, ball)) playerHit();
+      if (ball.vy < 0 && hitsPaddle(game.ai, ball)) aiHit();
+      if (ball.y > CONFIG.height + ball.radius * 2) playerMiss();
+      if (ball.y < CONFIG.court.top - ball.radius * 3) aiMiss();
+    }
+    function hitsPaddle(paddle, ball) {
+      const paddleTop = paddle.y - paddle.h / 2;
+      const paddleBottom = paddle.y + paddle.h / 2;
+      return ball.x + ball.radius > paddle.x - paddle.w / 2 && ball.x - ball.radius < paddle.x + paddle.w / 2 &&
+        ball.y + ball.radius > paddleTop && ball.y - ball.radius < paddleBottom;
+    }
+    function playerHit() {
+      const p = game.player, ball = game.ball;
+      ball.y = p.y - p.h / 2 - ball.radius;
+      const offset = clamp((ball.x - p.x) / (p.w / 2), -1, 1);
+      const perfect = Math.abs(offset) <= CONFIG.sweetSpot;
+      game.combo += 1; game.maxCombo = Math.max(game.maxCombo, game.combo); game.hits += 1;
+      game.score += Math.floor(1 * (1 + game.combo * .1));
+      const oldLevel = game.level;
+      while (game.level < DIFFICULTY.length && game.hits >= DIFFICULTY[game.level].hits) game.level += 1;
+      let speed = ball.speed + CONFIG.hitSpeedGain;
+      if (perfect) speed *= CONFIG.perfectSpeedBonus;
+      if (game.level !== oldLevel) {
+        speed *= currentDifficulty().speed / DIFFICULTY[oldLevel - 1].speed;
+        game.levelFlash = 1.3; sound('level');
+      }
+      normalizeBall(speed, -1, offset * CONFIG.maxBounceAngle);
+      burst(ball.x, ball.y, perfect); sound(perfect ? 'perfect' : 'hit');
+    }
+    function aiHit() {
+      const ai = game.ai, ball = game.ball;
+      ball.y = ai.y + ai.h / 2 + ball.radius;
+      const difficulty = currentDifficulty();
+      let offset = clamp((ball.x - ai.x) / (ai.w / 2), -1, 1);
+      if (game.level >= 5) {
+        const directionAway = game.player.x < CONFIG.width / 2 ? 1 : -1;
+        const desiredX = clamp(game.player.x + directionAway * 165, CONFIG.court.left + 35, CONFIG.court.right - 35);
+        offset = clamp((desiredX - ball.x) / 195, -.92, .92);
+      } else offset = clamp(offset * .78 + random(-.22, .22), -.90, .90);
+      normalizeBall(ball.speed + CONFIG.hitSpeedGain * .72 + (difficulty.speed - 1) * 6, 1, offset * CONFIG.maxBounceAngle);
+      burst(ball.x, ball.y, false, '#a67cff'); sound('hit');
+    }
+    function playerMiss() {
+      game.lives -= 1; game.combo = 0; game.redFlash = .35; game.shake = CONFIG.shakeDuration; sound('lose');
+      burst(game.ball.x, CONFIG.court.bottom - 6, false, '#ff5877');
+      if (game.lives <= 0) showGameOver(); else serveBall(-1);
+    }
+    function aiMiss() {
+      game.score += Math.max(2, Math.floor(1 + game.combo * .1));
+      game.levelFlash = Math.max(game.levelFlash, .45);
+      burst(game.ball.x, CONFIG.court.top + 8, true); sound('perfect'); serveBall(1);
+    }
+    function burst(x, y, perfect = false, color = null) {
+      const count = perfect ? CONFIG.particles.perfect : CONFIG.particles.normal;
+      const tint = color || (perfect ? '#ffd65a' : '#70e8ff');
+      for (let i = 0; i < count; i++) {
+        const angle = random(0, Math.PI * 2), speed = random(perfect ? 100 : 65, perfect ? 265 : 175);
+        game.particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: CONFIG.particles.life, max: CONFIG.particles.life, size: random(perfect ? 2.4 : 1.6, perfect ? 5.2 : 3.8), color: tint });
+      }
+    }
+    function updateEffects(dt) {
+      game.levelFlash = Math.max(0, game.levelFlash - dt);
+      game.shake = Math.max(0, game.shake - dt);
+      game.redFlash = Math.max(0, game.redFlash - dt);
+      game.particles = game.particles.filter(p => {
+        p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= Math.pow(.035, dt); p.vy = p.vy * Math.pow(.06, dt) + 23 * dt;
+        return p.life > 0;
+      });
+      game.trail.forEach(t => t.life -= dt);
+      game.trail = game.trail.filter(t => t.life > 0);
+    }
+    function update(dt) {
+      if (scene !== 'playing') return;
+      updatePlayer(dt); updateAI(dt); updateBall(dt); updateEffects(dt);
+    }
+
+    // ==================== 渲染 ====================
+    function roundRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.arcTo(x + w, y, x + w, y + h, radius); ctx.arcTo(x + w, y + h, x, y + h, radius); ctx.arcTo(x, y + h, x, y, radius); ctx.arcTo(x, y, x + w, y, radius); ctx.closePath();
+    }
+    function text(value, x, y, size, color = '#edfaff', align = 'left', weight = 700) {
+      ctx.font = `${weight} ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif`;
+      ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.fillStyle = color; ctx.fillText(value, x, y);
+    }
+    function renderCourt() {
+      const { left, right, top, bottom, netY } = CONFIG.court;
+      const bg = ctx.createLinearGradient(0, 0, 0, CONFIG.height);
+      bg.addColorStop(0, '#101d48'); bg.addColorStop(.48, '#0b1635'); bg.addColorStop(1, '#071127');
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+      const glow = ctx.createRadialGradient(CONFIG.width / 2, netY, 0, CONFIG.width / 2, netY, 475);
+      glow.addColorStop(0, 'rgba(67, 205, 255, .11)'); glow.addColorStop(1, 'rgba(0, 0, 0, 0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+      if (game.levelFlash > 0) {
+        ctx.fillStyle = `rgba(174, 105, 255, ${Math.min(.18, game.levelFlash * .14)})`;
+        ctx.fillRect(0, 0, CONFIG.width, CONFIG.height);
+      }
+      ctx.save();
+      ctx.strokeStyle = 'rgba(128, 234, 255, .34)'; ctx.lineWidth = 2;
+      ctx.shadowColor = '#47dfff'; ctx.shadowBlur = 10;
+      roundRect(left, top, right - left, bottom - top, 8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left, (top + netY) / 2); ctx.lineTo(right, (top + netY) / 2); ctx.moveTo(left, (bottom + netY) / 2); ctx.lineTo(right, (bottom + netY) / 2); ctx.stroke();
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle = '#9fefff'; ctx.lineWidth = 3; ctx.shadowColor = '#29d9ff'; ctx.shadowBlur = 13;
+      ctx.beginPath(); ctx.moveTo(left - 6, netY); ctx.lineTo(right + 6, netY); ctx.stroke();
+      ctx.strokeStyle = 'rgba(233, 254, 255, .65)'; ctx.lineWidth = 1;
+      for (let x = left + 7; x < right; x += 14) { ctx.beginPath(); ctx.moveTo(x, netY - 4); ctx.lineTo(x, netY + 4); ctx.stroke(); }
+      ctx.restore();
+    }
+    function renderHUD() {
+      ctx.save();
+      const hud = ctx.createLinearGradient(0, 0, 0, 100); hud.addColorStop(0, 'rgba(4, 11, 29, .88)'); hud.addColorStop(1, 'rgba(4, 11, 29, 0)');
+      ctx.fillStyle = hud; ctx.fillRect(0, 0, CONFIG.width, 100);
+      text('分数', 48, 29, 13, '#8cb8d3', 'left', 600); text(String(game.score).padStart(4, '0'), 48, 55, 25, '#effdff', 'left', 800);
+      text(`连击 x${game.combo}`, CONFIG.width / 2, 30, 15, game.combo >= 5 ? '#ffd85f' : '#8deaff', 'center', 800);
+      text(`生命 ${'♥'.repeat(game.lives)}${'♡'.repeat(CONFIG.lives - game.lives)}`, CONFIG.width / 2, 57, 19, '#ff8399', 'center', 700);
+      text(`Lv.${game.level}`, 552, 29, 18, '#bd9bff', 'right', 800); text('当前难度', 552, 55, 12, '#9aadcf', 'right', 600);
+      ctx.restore();
+    }
+    function renderPaddle(paddle, isPlayer) {
+      ctx.save();
+      const color = isPlayer ? '#63e7ff' : '#c498ff';
+      const gradient = ctx.createLinearGradient(0, paddle.y - 12, 0, paddle.y + 12);
+      gradient.addColorStop(0, isPlayer ? '#e6feff' : '#f2eaff'); gradient.addColorStop(1, color);
+      ctx.shadowColor = color; ctx.shadowBlur = 18; ctx.fillStyle = gradient;
+      roundRect(paddle.x - paddle.w / 2, paddle.y - paddle.h / 2, paddle.w, paddle.h, 9); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.72)'; roundRect(paddle.x - paddle.w / 2 + 7, paddle.y - paddle.h / 2 + 3, paddle.w - 14, 3, 2); ctx.fill(); ctx.restore();
+    }
+    function renderBall() {
+      const ball = game.ball;
+      ctx.save();
+      game.trail.slice().reverse().forEach((point, index) => {
+        const alpha = point.life / .25 * (index + 1) / game.trail.length * .38;
+        ctx.fillStyle = `rgba(109, 239, 255, ${alpha})`; ctx.beginPath(); ctx.arc(point.x, point.y, ball.radius * ((index + 1) / game.trail.length), 0, Math.PI * 2); ctx.fill();
+      });
+      const gradient = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 1, ball.x, ball.y, ball.radius);
+      gradient.addColorStop(0, '#ffffff'); gradient.addColorStop(.42, '#d8fbff'); gradient.addColorStop(1, '#48d9ff');
+      ctx.fillStyle = gradient; ctx.shadowColor = '#67ecff'; ctx.shadowBlur = 22; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    function renderParticles() {
+      ctx.save();
+      for (const p of game.particles) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 9; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / p.max), 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
+    function renderEffects() {
+      if (game.serveTimer > 0 && scene === 'playing') {
+        const number = Math.max(1, Math.ceil(game.serveTimer / (CONFIG.serveDelay / 3)));
+        text(number > 1 ? String(number) : '发球！', CONFIG.width / 2, CONFIG.height / 2 - 12, number > 1 ? 58 : 37, '#eafcff', 'center', 800);
+      }
+      if (game.levelFlash > 0) {
+        ctx.save(); ctx.globalAlpha = Math.min(1, game.levelFlash * 1.4); text(`Level Up!  Lv.${game.level}`, CONFIG.width / 2, CONFIG.height / 2, 32, '#ffe076', 'center', 900); ctx.restore();
+      }
+      if (game.redFlash > 0) { ctx.fillStyle = `rgba(255, 45, 79, ${game.redFlash * .25})`; ctx.fillRect(0, 0, CONFIG.width, CONFIG.height); }
+    }
+    function render() {
+      ctx.setTransform(pixelRatio * canvas.clientWidth / CONFIG.width, 0, 0, pixelRatio * canvas.clientHeight / CONFIG.height, 0, 0);
+      ctx.clearRect(0, 0, CONFIG.width, CONFIG.height);
+      ctx.save();
+      if (game.shake > 0 && scene === 'playing') { const force = game.shake / CONFIG.shakeDuration * 8; ctx.translate(random(-force, force), random(-force, force)); }
+      renderCourt(); renderHUD(); renderParticles(); renderPaddle(game.ai, false); renderPaddle(game.player, true); renderBall(); renderEffects();
+      ctx.restore();
+    }
+
+    // ==================== 主循环 ====================
+    function loop(now) {
+      const dt = Math.min(.033, Math.max(0, (now - lastTime) / 1000 || 0));
+      lastTime = now;
+      update(dt); render();
+      requestAnimationFrame(loop);
+    }
+    showMenu();
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
